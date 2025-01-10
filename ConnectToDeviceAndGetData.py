@@ -12,18 +12,16 @@ from PyQt5.QtCore import Qt, QTimer
 class DeviceControlApp(QMainWindow):     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PID Control Interface")
+        self.setWindowTitle("Temperature Control")
         self.setGeometry(100, 100, 1200, 800)
         
         #self.rm = pyvisa.ResourceManager()
         #print(f'Connected VISA resources: {self.rm.list_resources()}')
         
-        # Serial Port Configuration
-        self.serial_port = '/dev/ttyUSB0'  # Replace with your serial port
-        self.baud_rate = 115200  # Adjust as needed
+        self.serial_port = '/dev/ttyUSB0'  # Replace with your serial port NIGGA
+        self.baud_rate = 115200 
         self.ser = None
         
-        # Field names 
         self.fieldnames = [
             'Set Kp',
             'Set Ki', 
@@ -31,7 +29,6 @@ class DeviceControlApp(QMainWindow):
             'Setpoint'
         ]
         
-        # Command prefixes corresponding to each fieldname
         self.command_prefixes = [
             '<#',  # Kp
             '<$',  # Ki
@@ -39,15 +36,12 @@ class DeviceControlApp(QMainWindow):
             '<*'   # Setpoint
         ]
         
-        # Main widget and layout
         main_widget = QWidget()
         main_layout = QVBoxLayout()
-        
-        # Command Input Section
+
         command_section = QWidget()
         command_layout = QGridLayout()
-        
-        # Input fields for each parameter
+     
         self.parameter_inputs = {}
         for i, field in enumerate(self.fieldnames):
             label = QLabel(field)
@@ -56,43 +50,36 @@ class DeviceControlApp(QMainWindow):
             command_layout.addWidget(label, i, 0)
             command_layout.addWidget(input_field, i, 1)
             self.parameter_inputs[field] = input_field
-        
-        # Send Command Button
+
         send_button = QPushButton("Send Commands")
         send_button.clicked.connect(self.send_commands)
         command_layout.addWidget(send_button, len(self.fieldnames), 1)
         
         command_section.setLayout(command_layout)
-        
-        # Live graph setup
+ 
         self.graph_widget = pg.PlotWidget()
         self.graph_widget.setBackground('w')
         self.graph_widget.setTitle("Live Device Data")
         self.graph_widget.setLabel('left', 'Value')
         self.graph_widget.setLabel('bottom', 'Time')
-        
-        # Data curves for each metric
+
         self.temperature_curve = self.graph_widget.plot(pen='r', name='Temperature (PID)')
         self.error_curve = self.graph_widget.plot(pen='g', name='Error')
         self.setpoint_curve = self.graph_widget.plot(pen='b', name='Setpoint')
         self.ambient_curve = self.graph_widget.plot(pen='m', name='Ambient Temp')
         
-        # Data storage
         self.time_data = []
         self.temperature_data = []
         self.error_data = []
         self.setpoint_data = []
         self.ambient_data = []
         
-        # Connect to serial port
         self.connect_serial()
-        
-        # Data timer
+     
         self.data_timer = QTimer()
         self.data_timer.timeout.connect(self.update_data)
         self.data_timer.start(100)  # 100ms interval
-        
-        # Layout assembly
+   
         main_layout.addWidget(command_section)
         main_layout.addWidget(self.graph_widget)
         
@@ -125,29 +112,28 @@ class DeviceControlApp(QMainWindow):
         for i, (field, input_field) in enumerate(self.parameter_inputs.items()):
             value = input_field.text().strip()
             
-            # Validate input
             if not value:
                 self.show_error("Invalid Input", f"{field} cannot be empty")
                 return
             
             try:
-                # Convert input to float
                 float_value = float(value)
                 
-                # Construct command using the corresponding prefix and closing '>'
                 command = f'{self.command_prefixes[i]}{float_value}>\n'
                 commands.append(command)
             except ValueError:
                 self.show_error("Invalid Input", f"{field} must be a number")
                 return
         
-        # Send commands via serial
         try:
             for command in commands:
                 self.ser.write(command.encode('utf-8'))
                 print(f"Sent command: {command.strip()}")
         except Exception as e:
             self.show_error("Command Send Error", str(e))
+        finally:
+            self.ser.close()
+            self.ser.open()
     
     def show_error(self, title, message):
         """Display error message to the user"""
@@ -165,27 +151,21 @@ class DeviceControlApp(QMainWindow):
         e.g., <45.64/1.43/83.05/23.45>
         """
         if not self.ser or not self.ser.is_open:
-            # If no serial connection, use simulated data
+            # If no serial connection, use simulated data XD
             current_time = len(self.time_data)
-            temperature = 45.64 + np.random.normal(0, 0.5)
+            temperature = 45.64 + np.random.normal(0, 5)
             error = 1.43 + np.random.normal(0, 0.1)
-            setpoint = 83.05 + np.random.normal(0, 0.3)
-            ambient = 23.45 + np.random.normal(0, 0.2)
+            setpoint = 83.05 + np.random.normal(0, 23)
+            ambient = 23.45 + np.random.normal(0, 0.9)
         else:
             try:
-                # Check if data is available
                 if self.ser.in_waiting > 0:
-                    # Read a line of data
                     data_response = self.ser.readline().decode('utf-8').strip()
                     
-                    # Validate and parse the response
                     if data_response.startswith('<') and data_response.endswith('>'):
-                        # Remove angle brackets and split by '/'
                         data_str = data_response[1:-1]
                         try:
                             temperature, error, setpoint, ambient = map(float, data_str.split('/'))
-                            
-                            # Get current time (or use incrementing index)
                             current_time = len(self.time_data)
                         except (ValueError, TypeError):
                             print(f"Invalid data format: {data_response}")
@@ -194,29 +174,25 @@ class DeviceControlApp(QMainWindow):
                         print(f"Unexpected data format: {data_response}")
                         return
                 else:
-                    # No new data available
                     return
             except Exception as e:
                 print(f"Error reading serial data: {e}")
                 return
-        
-        # Store data points
+
         self.time_data.append(current_time)
         self.temperature_data.append(temperature)
         self.error_data.append(error)
         self.setpoint_data.append(setpoint)
         self.ambient_data.append(ambient)
-        
-        # Keep only last 100 data points
-        max_points = 100
+   
+        max_points = 500 # number of data points
         if len(self.time_data) > max_points:
             self.time_data = self.time_data[-max_points:]
             self.temperature_data = self.temperature_data[-max_points:]
             self.error_data = self.error_data[-max_points:]
             self.setpoint_data = self.setpoint_data[-max_points:]
             self.ambient_data = self.ambient_data[-max_points:]
-        
-        # Update plots
+
         self.temperature_curve.setData(self.time_data, self.temperature_data)
         self.error_curve.setData(self.time_data, self.error_data)
         self.setpoint_curve.setData(self.time_data, self.setpoint_data)
