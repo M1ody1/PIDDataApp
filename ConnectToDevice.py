@@ -13,7 +13,7 @@ class DeviceControlApp(QMainWindow):
         self.setWindowTitle("Temperature Control")
         self.setGeometry(100, 100, 1200, 800)
 
-        self.serial_port = 'COM6'  # Replace with your serial port
+        self.serial_port = 'COM3'  # Replace with your serial port
         self.baud_rate = 115200
         self.ser = None
 
